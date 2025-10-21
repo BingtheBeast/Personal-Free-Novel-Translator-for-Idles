@@ -1,0 +1,9 @@
+{
+  "name": "novel-translator",
+  "version": "1.0.0",
+  "private": true,
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12"
+  }
+}

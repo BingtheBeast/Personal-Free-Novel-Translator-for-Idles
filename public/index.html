@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Novel Translator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#f7f7f7;--text:#111827;--pre:#1f2937}
+    html.dark{--bg:#1a202c;--text:#e2e8f0;--pre:#e2e8f0}
+    body{font-family:Inter,system-ui; background:var(--bg); color:var(--text); transition:background .25s,color .25s}
+    #translation-output-pre{font-family:'Source Serif 4',serif; white-space:pre-wrap; font-size:1.05rem; line-height:1.7; color:var(--pre)}
+    .loader{border:4px solid rgba(0,0,0,.08); border-top:4px solid #4f46e5; border-radius:50%; width:20px;height:20px; animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+  <div class="p-6 max-w-3xl mx-auto">
+    <h1 class="text-3xl font-bold mb-2">Novel Translator</h1>
+    <p class="text-sm text-gray-600 mb-6">Paste a chapter URL and get an English translation. (Powered by a private server proxy)</p>
+
+    <div class="flex gap-2 mb-4">
+      <input id="chapterUrl" class="flex-1 px-3 py-2 rounded border" placeholder="Paste chapter URL (e.g., https://...)" />
+      <button id="translateBtn" class="px-4 py-2 bg-indigo-600 text-white rounded">Translate</button>
+    </div>
+
+    <div id="status" class="text-sm text-gray-600 mb-4"><span id="statusText"></span></div>
+
+    <div id="result" class="hidden">
+      <h2 id="chapterTitle" class="text-2xl font-semibold text-center mb-4"></h2>
+      <div id="translation-output-pre" class="bg-white p-6 rounded shadow"></div>
+    </div>
+
+    <div class="mt-6 text-xs text-gray-500">
+      Hosted frontend: GitHub Pages. Proxy + scraping & translation: Vercel (private key).
+    </div>
+  </div>
+
+  <script>
+  // === CONFIG - set this to your Vercel app domain AFTER you deploy ===
+  // Example: 'https://my-novel-proxy.vercel.app'
+  const PROXY_BASE = 'https://REPLACE_WITH_YOUR_VERCEL_APP_URL';
+
+  const q = s => document.querySelector(s);
+  const translateBtn = q('#translateBtn');
+  const urlInput = q('#chapterUrl');
+  const statusText = q('#statusText');
+  const result = q('#result');
+  const titleEl = q('#chapterTitle');
+  const outputEl = q('#translation-output-pre');
+
+  function setStatus(text) { statusText.textContent = text || ''; }
+
+  async function postJson(url, data, timeout = 60000) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        signal: controller.signal
+      });
+      clearTimeout(id);
+      return res;
+    } catch (err) {
+      clearTimeout(id);
+      throw err;
+    }
+  }
+
+  translateBtn.addEventListener('click', async () => {
+    const url = urlInput.value.trim();
+    if (!url) { alert('Paste a chapter URL'); return; }
+    setStatus('Fetching chapter (server)...');
+    result.classList.add('hidden');
+    try {
+      // 1) Ask the Vercel server to fetch & extract the chapter text (avoids CORS)
+      const scrapeRes = await postJson(PROXY_BASE + '/api/scrape', { url });
+      if (!scrapeRes.ok) {
+        const err = await scrapeRes.json().catch(()=>({ error: 'Scrape failed' }));
+        throw new Error(err.error || 'Scrape failed');
+      }
+      const scrapeJson = await scrapeRes.json();
+      if (!scrapeJson.rawText) throw new Error('Server could not extract chapter text. Try another URL.');
+
+      // 2) Build prompt text (title + separator + body)
+      const rawText = scrapeJson.rawText;
+      const title = scrapeJson.title || 'Untitled Chapter';
+      const toTranslate = `${title}\n---\n${rawText}`;
+
+      setStatus('Translating (server + Groq)...');
+
+      // 3) Request translation from server proxy which forwards to Groq with private key
+      const translateRes = await postJson(PROXY_BASE + '/api/translate', {
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: toTranslate }],
+        max_tokens: 8000
+      }, 120000);
+      if (!translateRes.ok) {
+        const err = await translateRes.json().catch(()=>({ error: 'Translate failed' }));
+        throw new Error(err.error || 'Translate failed');
+      }
+      const translateJson = await translateRes.json();
+
+      // 4) Pull translation text out
+      const translation = translateJson.choices?.[0]?.message?.content || translateJson.choices?.[0]?.text || '';
+      titleEl.textContent = title;
+      outputEl.textContent = translation || '[No translation returned]';
+      result.classList.remove('hidden');
+      setStatus('');
+    } catch (err) {
+      console.error(err);
+      if (err.name === 'AbortError') setStatus('Request timed out.');
+      else setStatus('Error: ' + (err.message || err));
+    }
+  });
+  </script>
+</body>
+</html>
