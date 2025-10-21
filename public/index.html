@@ -1,122 +1,228 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Novel Translator</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;500;600&display=swap" rel="stylesheet">
-  <style>
-    :root{--bg:#f7f7f7;--text:#111827;--pre:#1f2937}
-    html.dark{--bg:#1a202c;--text:#e2e8f0;--pre:#e2e8f0}
-    body{font-family:Inter,system-ui; background:var(--bg); color:var(--text); transition:background .25s,color .25s}
-    #translation-output-pre{font-family:'Source Serif 4',serif; white-space:pre-wrap; font-size:1.05rem; line-height:1.7; color:var(--pre)}
-    .loader{border:4px solid rgba(0,0,0,.08); border-top:4px solid #4f46e5; border-radius:50%; width:20px;height:20px; animation:spin 1s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Novel Translator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f7f7f7;
+            --text-color: #111827;
+            --card-bg: #ffffff;
+            --input-bg: #eef2f7;
+            --input-border: #d1d5db;
+            --status-text: #6b7280;
+            --pre-text: #1f2937;
+            --shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+        }
+        html.dark {
+            --bg-color: #1a202c;
+            --text-color: #e2e8f0;
+            --card-bg: #2d3748;
+            --input-bg: #4a5568;
+            --input-border: #718096;
+            --status-text: #a0aec0;
+            --pre-text: #e2e8f0;
+            --shadow: 0 10px 15px -3px rgb(0 0 0 / 0.2), 0 4px 6px -4px rgb(0 0 0 / 0.2);
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        #translation-output-pre {
+            font-family: 'Source Serif 4', serif;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 1.125rem;
+            line-height: 1.8;
+            color: var(--pre-text);
+        }
+        .modal { 
+            transition: opacity 0.3s ease, visibility 0.3s ease; 
+        }
+        .modal-content { 
+            transition: transform 0.3s ease; 
+            background-color: var(--card-bg);
+        }
+        #main-container.modal-open {
+            filter: blur(4px);
+        }
+        .view-screen {
+            transition: opacity 0.4s ease-in-out;
+        }
+        button {
+            transition: transform 0.1s ease-in-out, background-color 0.2s;
+        }
+        button:hover {
+            transform: scale(1.03);
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        .loader {
+            border: 4px solid rgba(0,0,0,0.1);
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        html.dark .loader {
+             border-top: 4px solid #818cf8;
+        }
+        .btn-loader {
+            width: 24px;
+            height: 24px;
+            border-top-color: #ffffff;
+        }
+    </style>
 </head>
-<body>
-  <div class="p-6 max-w-3xl mx-auto">
-    <h1 class="text-3xl font-bold mb-2">Novel Translator</h1>
-    <p class="text-sm text-gray-600 mb-6">Paste a chapter URL and get an English translation. (Powered by a private server proxy)</p>
+<body class="antialiased">
 
-    <div class="flex gap-2 mb-4">
-      <input id="chapterUrl" class="flex-1 px-3 py-2 rounded border" placeholder="Paste chapter URL (e.g., https://...)" />
-      <button id="translateBtn" class="px-4 py-2 bg-indigo-600 text-white rounded">Translate</button>
+    <div id="main-container" class="transition-filter duration-300">
+        <!-- Floating Action Buttons -->
+        <div class="fixed top-4 right-4 z-40 flex items-center space-x-2">
+             <button id="new-chapter-btn" class="p-2 rounded-full bg-card-bg shadow-md hidden" title="Translate New Chapter">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+             </button>
+             <button id="theme-toggle" class="p-2 rounded-full bg-card-bg shadow-md" title="Toggle Theme">
+                <svg id="theme-icon-light" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                <svg id="theme-icon-dark" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+            </button>
+            <button id="open-settings-btn" class="p-2 rounded-full bg-card-bg shadow-md" title="Settings">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            </button>
+        </div>
+
+        <div class="container mx-auto p-4 md:p-8 max-w-4xl relative min-h-screen pb-16">
+            <!-- Initial Input Screen -->
+            <div id="initial-input-screen" class="view-screen flex flex-col items-center justify-center min-h-[80vh]">
+                 <h1 class="text-5xl font-bold mb-4">Novel Translator</h1>
+                 <p class="text-xl text-status-text mb-8">Your personal AI-powered reading assistant.</p>
+                 <div class="w-full max-w-xl">
+                    <div class="flex items-center space-x-2 bg-card-bg p-2 rounded-full shadow-lg">
+                        <input type="url" id="initialNovelUrl" placeholder="Paste chapter URL to begin..." class="w-full flex-grow px-4 py-2 border-none rounded-full bg-input-bg focus:ring-2 focus:ring-indigo-500 outline-none">
+                        <button id="initialTranslateBtn" class="bg-indigo-600 text-white font-semibold px-6 py-2 rounded-full hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center justify-center w-36 h-10">
+                            <span class="btn-text">Translate</span>
+                            <div class="loader btn-loader hidden"></div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reader Screen -->
+            <article id="reader-screen" class="view-screen hidden opacity-0">
+                <div id="status" class="text-center text-status-text py-2 min-h-[64px] mb-4 flex flex-col items-center justify-center space-y-2">
+                    <div id="loading-spinner" class="loader hidden"></div>
+                    <span id="status-text-span" class="transition-opacity duration-300"></span>
+                </div>
+                
+                <div id="reader-content" class="hidden opacity-0 transition-opacity duration-500">
+                    <div class="nav-container top-nav flex items-center justify-between space-x-4 mb-6">
+                        <button class="nav-btn prev-btn flex-1 bg-card-bg border border-input-border font-semibold px-6 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">&larr; Previous</button>
+                        <button class="nav-btn next-btn flex-1 bg-card-bg border border-input-border font-semibold px-6 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">Next &rarr;</button>
+                    </div>
+
+                    <div class="bg-card-bg rounded-lg shadow-lg p-6 md:p-10">
+                        <h2 id="chapter-title" class="text-3xl md:text-4xl font-bold text-center mb-8"></h2>
+                        <div id="translation-output-pre"></div>
+                    </div>
+
+                    <div class="nav-container bottom-nav flex items-center justify-between space-x-4 mt-8">
+                        <button class="nav-btn prev-btn flex-1 bg-card-bg border border-input-border font-semibold px-6 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">&larr; Previous</button>
+                        <button class="nav-btn next-btn flex-1 bg-card-bg border border-input-border font-semibold px-6 py-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">Next &rarr;</button>
+                    </div>
+                </div>
+            </article>
+        </div>
     </div>
 
-    <div id="status" class="text-sm text-gray-600 mb-4"><span id="statusText"></span></div>
+    <!-- Modals (unchanged, same as your original) -->
+    <!-- ... [leave all your modals as in your original code] ... -->
 
-    <div id="result" class="hidden">
-      <h2 id="chapterTitle" class="text-2xl font-semibold text-center mb-4"></h2>
-      <div id="translation-output-pre" class="bg-white p-6 rounded shadow"></div>
-    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // ... [all your original setup code and element selectors] ...
 
-    <div class="mt-6 text-xs text-gray-500">
-      Hosted frontend: GitHub Pages. Proxy + scraping & translation: Vercel (private key).
-    </div>
-  </div>
+            // Replace ONLY the getGroqTranslationStream function and remove apiKey usage!
+            async function getGroqTranslationStream(text, displayTitle, isNumericTitle) {
+                const model = 'llama-3.3-70b-versatile';
+                updateStatus(`Translating with Groq...`);
+                const prompt = createPrompt(text);
 
-  <script>
-  // === CONFIG - set this to your Vercel app domain AFTER you deploy ===
-  // Example: 'https://my-novel-proxy.vercel.app'
-  const PROXY_BASE = 'https://personal-free-novel-translator-for.vercel.app';
+                const response = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt, model, max_tokens: 8000 }),
+                });
 
-  const q = s => document.querySelector(s);
-  const translateBtn = q('#translateBtn');
-  const urlInput = q('#chapterUrl');
-  const statusText = q('#statusText');
-  const result = q('#result');
-  const titleEl = q('#chapterTitle');
-  const outputEl = q('#translation-output-pre');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`Groq API Error: ${errorData.error || `HTTP ${response.status}`}.`);
+                }
 
-  function setStatus(text) { statusText.textContent = text || ''; }
+                elements.translationOutputPre.textContent = '';
+                elements.chapterTitle.textContent = isNumericTitle ? displayTitle : '';
 
-  async function postJson(url, data, timeout = 60000) {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeout);
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-        signal: controller.signal
-      });
-      clearTimeout(id);
-      return res;
-    } catch (err) {
-      clearTimeout(id);
-      throw err;
-    }
-  }
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let isTitleDone = isNumericTitle;
 
-  translateBtn.addEventListener('click', async () => {
-    const url = urlInput.value.trim();
-    if (!url) { alert('Paste a chapter URL'); return; }
-    setStatus('Fetching chapter (server)...');
-    result.classList.add('hidden');
-    try {
-      // 1) Ask the Vercel server to fetch & extract the chapter text (avoids CORS)
-      const scrapeRes = await postJson(PROXY_BASE + '/api/scrape', { url });
-      if (!scrapeRes.ok) {
-        const err = await scrapeRes.json().catch(()=>({ error: 'Scrape failed' }));
-        throw new Error(err.error || 'Scrape failed');
-      }
-      const scrapeJson = await scrapeRes.json();
-      if (!scrapeJson.rawText) throw new Error('Server could not extract chapter text. Try another URL.');
+                elements.readerContent.classList.remove('hidden');
+                setTimeout(() => elements.readerContent.classList.remove('opacity-0'), 20);
+                toggleLoading(false);
 
-      // 2) Build prompt text (title + separator + body)
-      const rawText = scrapeJson.rawText;
-      const title = scrapeJson.title || 'Untitled Chapter';
-      const toTranslate = `${title}\n---\n${rawText}`;
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
 
-      setStatus('Translating (server + Groq)...');
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
 
-      // 3) Request translation from server proxy which forwards to Groq with private key
-      const translateRes = await postJson(PROXY_BASE + '/api/translate', {
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: toTranslate }],
-        max_tokens: 8000
-      }, 120000);
-      if (!translateRes.ok) {
-        const err = await translateRes.json().catch(()=>({ error: 'Translate failed' }));
-        throw new Error(err.error || 'Translate failed');
-      }
-      const translateJson = await translateRes.json();
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const content = line.substring(6);
+                            if (content.trim() === '[DONE]') continue;
+                            try {
+                                const chunk = JSON.parse(content);
+                                const delta = chunk.choices[0]?.delta?.content || '';
 
-      // 4) Pull translation text out
-      const translation = translateJson.choices?.[0]?.message?.content || translateJson.choices?.[0]?.text || '';
-      titleEl.textContent = title;
-      outputEl.textContent = translation || '[No translation returned]';
-      result.classList.remove('hidden');
-      setStatus('');
-    } catch (err) {
-      console.error(err);
-      if (err.name === 'AbortError') setStatus('Request timed out.');
-      else setStatus('Error: ' + (err.message || err));
-    }
-  });
-  </script>
+                                if (!isTitleDone) {
+                                    elements.translationOutputPre.textContent += delta;
+                                    if (elements.translationOutputPre.textContent.includes('\n---\n')) {
+                                        const parts = elements.translationOutputPre.textContent.split('\n---\n');
+                                        elements.chapterTitle.textContent = parts[0].trim();
+                                        elements.translationOutputPre.textContent = parts.slice(1).join('\n---\n').trim();
+                                        isTitleDone = true;
+                                    }
+                                } else {
+                                    elements.translationOutputPre.textContent += delta;
+                                }
+                            } catch (e) {
+                                console.error("Error parsing stream chunk:", content);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Update ALL calls to getGroqTranslationStream: REMOVE apiKey argument!
+            // Example:
+            // Before:
+            // await getGroqTranslationStream(textToTranslate, apiKey, displayTitle, chapterTitle.isNumeric);
+            // After:
+            // await getGroqTranslationStream(textToTranslate, displayTitle, chapterTitle.isNumeric);
+
+            // ... [leave all your other JS logic as in your original code, except for the above update]
+        });
+    </script>
 </body>
-
 </html>
