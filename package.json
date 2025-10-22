@@ -1,11 +1,9 @@
 {
   "name": "novel-translator-engine",
-  "version": "2.0.0",
-  "description": "Robust backend for handling secure translation and content extraction.",
+  "version": "3.0.0",
+  "description": "A reliable, lightweight backend for secure translation.",
   "type": "module",
   "dependencies": {
-    "@mozilla/readability": "^0.5.0",
-    "cheerio": "^1.0.0-rc.12",
-    "jsdom": "^24.0.0"
+    "cheerio": "^1.0.0-rc.12"
   }
 }
