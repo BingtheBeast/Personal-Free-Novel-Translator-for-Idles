@@ -1,5 +1,9 @@
 import * as cheerio from 'cheerio';
 
+export const config = {
+    runtime: 'edge',
+};
+
 function findBestNavigationLink($, baseUrl, type) {
     const candidates = [];
     const keywords = type === 'next' ? ['下一章', 'next chapter', '다음', 'next'] : ['上一章', 'previous chapter', '이전', 'prev'];
@@ -24,11 +28,8 @@ function findBestNavigationLink($, baseUrl, type) {
 
 export async function scrapeChapter(novelUrl, userCssSelector) {
     const apiKey = process.env.SCRAPINGBEE_API_KEY;
-    if (!apiKey) {
-        throw new Error('ScrapingBee API key is not configured on the server.');
-    }
+    if (!apiKey) throw new Error('ScrapingBee API key is not configured on the server.');
 
-    // --- USE SCRAPINGBEE TO FETCH THE HTML ---
     const scrapingBeeUrl = `https://app.scrapingbee.com/api/v1/?api_key=${apiKey}&url=${encodeURIComponent(novelUrl)}`;
 
     try {
@@ -39,19 +40,11 @@ export async function scrapeChapter(novelUrl, userCssSelector) {
         }
         const html = await response.text();
         
-        // --- USE LIGHTWEIGHT CHEERIO TO PARSE THE HTML ---
         const $ = cheerio.load(html);
         let rawText = '';
         let chapterTitle = '';
 
-        const selectorsToTry = [
-            userCssSelector,
-            '#content', 
-            '.content',
-            'article', 
-            '.entry-content', 
-            '.chapter-content'
-        ];
+        const selectorsToTry = [ userCssSelector, '#content', '.content', 'article', '.entry-content', '.chapter-content' ];
 
         for (const selector of selectorsToTry) {
             if (selector) {
@@ -67,16 +60,13 @@ export async function scrapeChapter(novelUrl, userCssSelector) {
             }
         }
 
-        if (!rawText) {
-            throw new Error('Could not extract chapter text. Please check the CSS Selector in settings.');
-        }
+        if (!rawText) throw new Error('Could not extract chapter text. Please check the CSS Selector in settings.');
 
         chapterTitle = $('h1, h2, .title, .chapter-title, .entry-title').first().text().trim() || 'Untitled Chapter';
         const nextUrl = findBestNavigationLink($, novelUrl, 'next');
         const prevUrl = findBestNavigationLink($, novelUrl, 'prev');
         
         return { rawText, chapterTitle, nextUrl, prevUrl };
-
     } catch (error) {
         throw error;
     }
