@@ -1,70 +1,76 @@
-// Vercel serverless function: fetches a URL and extracts chapter text + title.
-// Uses cheerio (installed via package.json).
-const cheerio = require('cheerio');
+import { JSDOM } from 'jsdom';
+import { Readability } from '@mozilla/readability';
+import cheerio from 'cheerio';
 
-module.exports = async (req, res) => {
-  try {
-    if (req.method === 'OPTIONS') {
-      res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-      return res.status(200).end();
-    }
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+function findBestNavigationLink($, baseUrl, type) {
+    const candidates = [];
+    const keywords = type === 'next' 
+        ? ['下一章', 'next chapter', '다음', 'next']
+        : ['上一章', 'previous chapter', '이전', 'prev'];
+    
+    const allLinks = $('a[href]').toArray();
 
-    const { url } = req.body || {};
-    if (!url) return res.status(400).json({ error: 'Missing url' });
+    allLinks.forEach((linkElement, index) => {
+        const link = $(linkElement);
+        let score = 0;
+        const linkText = link.text().toLowerCase().trim();
+        const linkHref = link.attr('href');
 
-    // Basic server-side fetch (Vercel runs Node 18+, so global fetch is available)
-    const response = await fetch(url, { method: 'GET' });
-    if (!response.ok) return res.status(502).json({ error: `Failed to fetch URL (${response.status})` });
-    const html = await response.text();
-
-    const $ = cheerio.load(html);
-
-    // Try a set of common selectors for novel chapter content
-    const selectors = ['article', '.content', '#content', '.chapter-content', '.entry-content', '.read-content', '.novel-content'];
-    let rawText = null;
-    for (const s of selectors) {
-      const el = $(s);
-      if (el && el.text().trim().length > 200) {
-        rawText = el.text().trim();
-        break;
-      }
-    }
-
-    // Fallback: try to pick the largest <div> by text length
-    if (!rawText) {
-      let best = { len: 0, text: '' };
-      $('div').each((i, el) => {
-        const t = $(el).text().trim();
-        if (t.length > best.len) best = { len: t.length, text: t };
-      });
-      if (best.len > 200) rawText = best.text;
-    }
-
-    const title = $('h1').first().text().trim() || $('title').text().trim() || '';
-
-    // Also attempt next/prev links (by rel or common text)
-    let next = null, prev = null;
-    $('a[href]').each((i, el) => {
-      const a = $(el);
-      const txt = (a.text() || '').replace(/\s+/g, '').toLowerCase();
-      const rel = (a.attr('rel') || '').toLowerCase();
-      const href = a.attr('href');
-      if (!next && (rel === 'next' || txt.includes('下一章') || txt.includes('next') || txt.includes('다음'))) {
-        try { next = new URL(href, url).href; } catch (e) {}
-      }
-      if (!prev && (rel === 'prev' || txt.includes('上一章') || txt.includes('previous') || txt.includes('이전'))) {
-        try { prev = new URL(href, url).href; } catch (e) {}
-      }
+        if (!linkHref || linkHref.startsWith('javascript:') || linkHref === '#') return;
+        if (keywords.some(k => linkText.includes(k))) score += 20; else return;
+        if (link.attr('rel') === type) score += 100;
+        if ((link.attr('id') || '').toLowerCase().includes(type)) score += 50;
+        if ((link.attr('class') || '').toLowerCase().includes(type)) score += 30;
+        if (index > allLinks.length * 0.85) score += 10;
+        
+        try {
+            const absoluteUrl = new URL(linkHref, baseUrl).href;
+            if (!candidates.some(c => c.url === absoluteUrl)) {
+                 candidates.push({ url: absoluteUrl, score: score });
+            }
+        } catch (e) { /* Invalid URL */ }
     });
 
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    return res.json({ rawText: rawText || null, title: title || null, next, prev });
-  } catch (err) {
-    console.error('scrape error', err);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    return res.status(500).json({ error: 'Server scrape error' });
-  }
-};
+    if (candidates.length === 0) return null;
+    candidates.sort((a, b) => b.score - a.score);
+    return candidates[0].url;
+}
+
+export async function scrapeChapter(novelUrl) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15 seconds
+
+    try {
+        const response = await fetch(novelUrl, {
+            signal: controller.signal,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+            }
+        });
+
+        if (!response.ok) throw new Error(`Failed to fetch chapter. The site returned status: ${response.status}`);
+        const html = await response.text();
+
+        const doc = new JSDOM(html, { url: novelUrl });
+        const reader = new Readability(doc.window.document);
+        const article = reader.parse();
+
+        if (!article || !article.textContent) throw new Error('Could not automatically extract the chapter text.');
+        
+        const content$ = cheerio.load(article.content);
+        const rawText = content$.text().trim();
+        const chapterTitle = article.title || 'Untitled Chapter';
+
+        const original$ = cheerio.load(html);
+        const nextUrl = findBestNavigationLink(original$, novelUrl, 'next');
+        const prevUrl = findBestNavigationLink(original$, novelUrl, 'prev');
+        
+        return { rawText, chapterTitle, nextUrl, prevUrl };
+    } catch (error) {
+        if (error.name === 'AbortError') throw new Error('The target website took too long to respond.');
+        throw error;
+    } finally {
+        clearTimeout(timeout);
+    }
+}

@@ -1,9 +1,11 @@
 {
-  "name": "novel-translator",
-  "version": "1.0.0",
-  "private": true,
-  "engines": { "node": ">=18" },
+  "name": "novel-translator-engine",
+  "version": "2.0.0",
+  "description": "Robust backend for handling secure translation and content extraction.",
+  "type": "module",
   "dependencies": {
-    "cheerio": "^1.0.0-rc.12"
+    "@mozilla/readability": "^0.5.0",
+    "cheerio": "^1.0.0-rc.12",
+    "jsdom": "^24.0.0"
   }
 }
