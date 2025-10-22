@@ -24,7 +24,7 @@ export default async function handler(req) {
 4.  Do NOT include any other text, numbering, introductions, explanations, or markdown. Your entire response must be only the glossary terms.
 
 **EXAMPLE OUTPUT FORMAT:**
-${example}`; // <-- FIX #1: The missing backtick that caused the build to fail is now here.
+${example}`;
 
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
@@ -47,9 +47,8 @@ ${example}`; // <-- FIX #1: The missing backtick that caused the build to fail i
 
         const data = await response.json();
         
-        // --- FIX #2: The runtime error was here. Groq returns an array for 'choices'. ---
-        // We need to access the first item `[0]`.
-        const glossaryText = data.choices.message.content.trim();
+        // THE FIX IS HERE: Access the first item in the 'choices' array
+        const glossaryText = data.choices[0].message.content.trim();
 
         return new Response(JSON.stringify({ glossary: glossaryText }), {
             headers: { 'Content-Type': 'application/json' }
