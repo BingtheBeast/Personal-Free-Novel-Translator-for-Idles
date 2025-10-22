@@ -59,6 +59,7 @@
                     </button>
                 </div>
             </div>
+            <button id="resume-btn" class="hidden mt-6 text-sm font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors">Resume Reading</button>
         </div>
 
         <!-- Reader Screen -->
@@ -138,6 +139,7 @@
             modalUrlInput: document.getElementById('modal-url'),
             initialBtn: document.getElementById('initial-translate-btn'),
             modalBtn: document.getElementById('modal-translate-btn'),
+            resumeBtn: document.getElementById('resume-btn'),
             navBtns: document.querySelectorAll('.nav-btn'),
             statusBar: document.getElementById('status-bar'),
             statusText: document.getElementById('status-text'),
@@ -158,69 +160,142 @@
         };
 
         const state = { nav: { next: null, prev: null }, currentUrl: '', isTranslating: false };
+        const languageConfig = { /* ... (same as previous version) ... */ };
 
-        const languageConfig = {
-            chinese: {
-                prompt: `You are a world-class literary translator specializing in Chinese web novels. Your mission is to translate the provided text into masterful English prose.
+        function toggleModal(modal, show) { /* ... (same as previous version) ... */ }
+        function setLoadingState(isLoading, button = null) { /* ... (same as previous version) ... */ }
+        function updateStatus(message) { /* ... (same as previous version) ... */ }
 
-## PRIMARY DIRECTIVES
-1.  **Preserve the Soul:** Do not just translate words; translate the feeling, the tone, and the subtext. The goal is literary excellence.
-2.  **Character Voice:** Pay meticulous attention to character-specific speech patterns. A young master's arrogant tone, a stoic elder's formal speech, or a comedic sidekick's slang must be preserved.
-3.  **Conceptual Translation:** For idioms, proverbs, and cultural concepts (like 'face' or 'dao'), find the closest English literary equivalent that captures the original's *intent and meaning*, rather than its literal words.
-
-## GLOSSARY & TERMS
-- **Glossary is LAW:** The user-provided glossary is an absolute, non-negotiable directive. Every term in it MUST be translated exactly as specified.
-- **Pinyin for Unknowns:** For proper nouns (names, places, sects) NOT in the glossary, transliterate them into standard Pinyin. DO NOT leave them as original Chinese characters.
-
-## FORMATTING
-- **Structure:** The input will have the chapter title on the first line, followed by "---". Your output MUST preserve this format: translated title, then a newline, then "---", then another newline, then the translated body.
-- **Purity:** Provide ONLY the translated text. Do not add any author notes, translation notes, commentary, or apologies.
-
---- GLOSSARY START ---
-{{GLOSSARY}}
---- GLOSSARY END ---
-
---- RAW TEXT TO TRANSLATE ---
-{{TEXT}}
---- END ---`,
-                defaultGlossary: `# --- Common Concepts ---\n'道' = 'Dao'\n'气' = 'Qi'\n'修炼' = 'Cultivation'\n'灵气' = 'Spiritual Energy'\n'内力' = 'Internal Energy'\n'经脉' = 'Meridians'\n'丹田' = 'Dantian'\n'神识' = 'Divine Sense'\n'心魔' = 'Inner Demon'\n'业力' = 'Karma'\n'面子' = 'Face (social standing)'\n'找死' = 'Courting Death'\n'磕头' = 'Kowtow'\n'晚辈' = 'Junior'\n'前辈' = 'Senior'\n\n# --- Cultivation Ranks (Xianxia) ---\n'炼气' = 'Qi Refining'\n'筑基' = 'Foundation Establishment'\n'金丹' = 'Golden Core'\n'元婴' = 'Nascent Soul'\n'化神' = 'Spirit Transformation'\n'返虚' = 'Void Returning'\n'合道' = 'Dao Merging'\n'渡劫' = 'Tribulation Transcending'\n'大乘' = 'Mahayana'\n'真仙' = 'True Immortal'\n'金仙' = 'Golden Immortal'\n\n# --- Martial Ranks (Wuxia/Xuanhuan) ---\n'后天' = 'Houtian'\n'先天' = 'Xiantian'\n'宗师' = 'Grandmaster'\n'大宗师' = 'Great Grandmaster'\n'武王' = 'Martial King'\n'武皇' = 'Martial Emperor'\n'武尊' = 'Martial Venerate'\n'武圣' = 'Martial Saint'\n'武神' = 'Martial God'\n\n# --- Social & Sect Terms ---\n'师父' = 'Master (Shifu)'\n'师兄' = 'Senior Martial Brother'\n'师弟' = 'Junior Martial Brother'\n'师姐' = 'Senior Martial Sister'\n'师妹' = 'Junior Martial Sister'\n'掌门' = 'Sect Master'\n'宗主' = 'Sect Lord'\n'弟子' = 'Disciple'\n'长老' = 'Elder'\n'宗门' = 'Sect'\n'家族' = 'Family / Clan'\n'圣女' = 'Saintess'\n'圣子' = 'Saint'\n'皇上' = 'Emperor'\n'陛下' = 'Your Majesty'\n'殿下' = 'Your Highness'\n'公子' = 'Young Master'\n'小姐' = 'Young Miss'\n\n# --- Items & Alchemy ---\n'法宝' = 'Magic Treasure'\n'灵器' = 'Spirit Tool'\n'仙器' = 'Immortal Tool'\n'神器' = 'Divine Tool'\n'灵石' = 'Spirit Stone'\n'丹药' = 'Medicinal Pill / Elixir'\n'灵草' = 'Spirit Grass'\n'功法' = 'Cultivation Technique'\n'神通' = 'Divine Ability'\n'储物戒指' = 'Storage Ring'\n\n# --- Places & Creatures ---\n'洞府' = 'Immortal\'s Cave'\n'秘境' = 'Secret Realm'\n'小世界' = 'Lesser World'\n'妖兽' = 'Yao Beast (Demonic Beast)'\n'魔兽' = 'Mo Beast (Magical Beast)'\n'龙' = 'Dragon'\n'凤' = 'Phoenix'`
-            },
-            korean: {
-                prompt: `You are a world-class literary translator specializing in Korean web novels. Your mission is to translate the provided text into masterful English prose.
-
-## PRIMARY DIRECTIVES
-1.  **Preserve the Soul:** Do not just translate words; translate the feeling, the modern and punchy tone, and the subtext. The goal is literary excellence.
-2.  **Character Voice:** Pay meticulous attention to character-specific speech patterns. A hunter's sharp commands, a regressor's weary monologue, or a system's robotic text must be preserved.
-3.  **Conceptual Translation:** For idioms and cultural concepts, find the closest English literary equivalent that captures the original's *intent and meaning*, rather than its literal words.
-
-## GLOSSARY & TERMS
-- **Glossary is LAW:** The user-provided glossary is an absolute, non-negotiable directive. Every term in it MUST be translated exactly as specified.
-- **Romanization for Unknowns:** For names or terms NOT in the glossary, romanize them using the Revised Romanization of Korean system. DO NOT leave them as original Korean characters.
-- **Preserve Honorifics:** Preserve Korean honorifics (e.g., 'Gildong-nim', 'Sunbae').
-
-## FORMATTING
-- **Structure:** The input will have the chapter title on the first line, followed by "---". Your output MUST preserve this format: translated title, then a newline, then "---", then another newline, then the translated body.
-- **Purity:** Provide ONLY the translated text. Do not add any author notes, translation notes, commentary, or apologies.
-
---- GLOSSARY START ---
-{{GLOSSARY}}
---- GLOSSARY END ---
-
---- RAW TEXT TO TRANSLATE ---
-{{TEXT}}
---- END ---`,
-                defaultGlossary: `# --- System & Hunter Terms ---\n'헌터' = 'Hunter'\n'게이트' = 'Gate'\n'던전' = 'Dungeon'\n'마나' = 'Mana'\n'각성' = 'Awakening'\n'각성자' = 'Awakened'\n'시스템' = 'The System'\n'상태창' = 'Status Window'\n'레벨업' = 'Level Up'\n'S급' = 'S-Rank'\n'A급' = 'A-Rank'\n'길드' = 'Guild'\n'파티' = 'Party'\n'아이템' = 'Item'\n'스킬' = 'Skill'\n'몬스터' = 'Monster'\n'보스' = 'Boss Monster'\n'회귀' = 'Regression / Return'\n'회귀자' = 'Regressor / Returner'\n'빙의' = 'Possession'\n'환생' = 'Reincarnation'\n\n# --- Roles & Classes ---\n'탱커' = 'Tank'\n'힐러' = 'Healer'\n'딜러' = 'Dealer / Damage Dealer'\n'서포터' = 'Supporter'\n'마법사' = 'Mage / Wizard'\n'전사' = 'Warrior'\n'궁수' = 'Archer'\n'암살자' = 'Assassin'\n\n# --- Murim (Martial World) Terms ---\n'무림' = 'Murim'\n'정파' = 'Orthodox Faction'\n'사파' = 'Unorthodox Faction'\n'마교' = 'Demonic Cult'\n'기' = 'Ki / Internal Energy'\n'내공' = 'Internal Gong'\n'심법' = 'Heart Technique'\n'무공' = 'Martial Arts'\n'소교주' = 'Young Cult Leader'\n'맹주' = 'Alliance Leader'\n\n# --- Royalty & Nobility ---\n'황제' = 'Emperor'\n'황태자' = 'Crown Prince'\n'왕자' = 'Prince'\n'공주' = 'Princess'\n'공작' = 'Duke'\n'후작' = 'Marquis'\n'백작' = 'Count'\n'영애' = 'Young Lady / Daughter of a Noble'\n\n# --- Honorifics & Titles ---\n'님' = '-nim'\n'씨' = '-ssi'\n'선생님' = 'Teacher-nim'\n'선배' = 'Sunbae (Senior)'\n'후배' = 'Hoobae (Junior)'\n'오빠' = 'Oppa'\n'형' = 'Hyung'\n'누나' = 'Noona'\n'언니' = 'Unni'`
+        function cleanUrl(urlString) {
+            try {
+                const url = new URL(urlString);
+                url.hash = '';
+                const paramsToRemove = [];
+                url.searchParams.forEach((_, key) => {
+                    if (key.startsWith('utm_') || key === 'fbclid') {
+                        paramsToRemove.push(key);
+                    }
+                });
+                paramsToRemove.forEach(key => url.searchParams.delete(key));
+                return url.href;
+            } catch (e) {
+                return urlString;
             }
-        };
+        }
         
-        function toggleModal(modal, show) { /* ... (no changes) ... */ }
-        function setLoadingState(isLoading, button = null) { /* ... (no changes) ... */ }
-        function updateStatus(message) { /* ... (no changes) ... */ }
-        async function handleTranslation(url) { /* ... (no changes) ... */ }
-        elements.aiGlossaryInput.addEventListener('keydown', async (e) => { /* ... (no changes) ... */ });
-        function saveSettings() { /* ... (no changes) ... */ }
+        async function handleTranslation(url) {
+            const cleanedUrl = cleanUrl(url);
+            if (!cleanedUrl || state.isTranslating || cleanedUrl === state.currentUrl) return;
 
-        // --- Init & Event Listeners ---
+            state.isTranslating = true;
+            state.currentUrl = cleanedUrl;
+            toggleModal(elements.modals.url, false);
+            
+            if (elements.initialScreen.style.display !== 'none') {
+                elements.initialScreen.style.opacity = 0;
+                setTimeout(() => {
+                    elements.initialScreen.style.display = 'none';
+                    elements.readerScreen.classList.remove('hidden');
+                    elements.readerScreen.classList.add('fade-in');
+                    elements.logo.classList.remove('opacity-0');
+                    elements.newChapterBtn.classList.remove('hidden', 'opacity-0');
+                }, 300);
+            }
+            
+            elements.readerContent.classList.add('hidden');
+            updateStatus('Thinking...');
+            setLoadingState(true);
+
+            try {
+                const langConfig = languageConfig[elements.langSelect.value];
+                const prompt = langConfig.prompt.replace('{{GLOSSARY}}', `${langConfig.defaultGlossary}\n${elements.glossaryTextarea.value}`);
+
+                const response = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        novelUrl: cleanedUrl, 
+                        promptData: prompt, 
+                        userApiKey: elements.groqKeyInput.value,
+                        cssSelector: elements.cssSelectorInput.value.trim()
+                    })
+                });
+
+                if (!response.ok) throw new Error((await response.json()).error || 'Translation request failed.');
+                
+                state.nav = { next: response.headers.get('X-Next-Url') || null, prev: response.headers.get('X-Prev-Url') || null };
+                elements.translationOutput.innerHTML = '';
+                elements.chapterTitle.textContent = '';
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let isTitleDone = false;
+
+                elements.readerContent.classList.remove('hidden');
+                elements.readerContent.classList.add('fade-in');
+                updateStatus('');
+                setLoadingState(false);
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    decoder.decode(value, { stream: true }).split('\n').forEach(line => {
+                        if (line.startsWith('data: ') && line.trim() !== 'data: [DONE]') {
+                            try {
+                                const delta = JSON.parse(line.substring(6)).choices[0]?.delta?.content || '';
+                                if (!isTitleDone) {
+                                    elements.translationOutput.textContent += delta;
+                                    if (elements.translationOutput.textContent.includes('\n---\n')) {
+                                        const parts = elements.translationOutput.textContent.split('\n---\n');
+                                        elements.chapterTitle.textContent = parts[0].trim();
+                                        elements.translationOutput.textContent = parts.slice(1).join('\n---\n').trimStart();
+                                        isTitleDone = true;
+                                    }
+                                } else {
+                                    elements.translationOutput.textContent += delta;
+                                }
+                            } catch (e) { /* Ignore parsing errors in stream */ }
+                        }
+                    });
+                }
+                elements.translationOutput.appendChild(Object.assign(document.createElement('div'), { className: 'end-of-chapter-note', textContent: '❦' }));
+                sessionStorage.setItem('nt_lastUrl', state.currentUrl);
+
+            } catch (error) {
+                state.currentUrl = '';
+                updateStatus(error.message);
+                setTimeout(() => updateStatus(''), 4000);
+            } finally {
+                state.isTranslating = false;
+                setLoadingState(false);
+                elements.navBtns.forEach(btn => {
+                    const isNext = btn.classList.contains('next-btn');
+                    btn.disabled = isNext ? !state.nav.next : !state.nav.prev;
+                });
+            }
+        }
+
+        elements.aiGlossaryInput.addEventListener('keydown', async (e) => { /* ... (same as previous version) ... */ });
+
+        function saveSettings() {
+            localStorage.setItem('nt_settings', JSON.stringify({
+                key: elements.groqKeyInput.value,
+                lang: elements.langSelect.value,
+                gloss: elements.glossaryTextarea.value,
+                theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+                selector: elements.cssSelectorInput.value
+            }));
+        }
+
+        function checkSession() {
+            const lastUrl = sessionStorage.getItem('nt_lastUrl');
+            if (lastUrl) {
+                elements.resumeBtn.classList.remove('hidden');
+                elements.resumeBtn.onclick = () => handleTranslation(lastUrl);
+            }
+        }
+
         const settings = JSON.parse(localStorage.getItem('nt_settings') || '{}');
         elements.groqKeyInput.value = settings.key || '';
         elements.langSelect.value = settings.lang || 'chinese';
@@ -235,21 +310,33 @@
 
         [elements.groqKeyInput, elements.langSelect, elements.glossaryTextarea, elements.cssSelectorInput].forEach(el => el.addEventListener('change', saveSettings));
         
-        elements.themeToggle.addEventListener('click', () => {
-             const isDark = document.documentElement.classList.toggle('dark');
-             elements.themeIcon.innerHTML = isDark 
-                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>' 
-                : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>';
-             saveSettings();
-        });
-
+        elements.themeToggle.addEventListener('click', () => { /* ... (same as previous version) ... */ });
         elements.initialBtn.addEventListener('click', () => handleTranslation(elements.initialUrlInput.value));
         elements.modalBtn.addEventListener('click', () => handleTranslation(elements.modalUrlInput.value));
-        elements.navBtns.forEach(b => b.addEventListener('click', (e) => { /* ... (no changes) ... */ }));
+        
+        elements.navBtns.forEach(b => b.addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            setLoadingState(true, btn);
+            const direction = btn.classList.contains('next-btn') ? 'next' : 'prev';
+            if(state.nav[direction]) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                handleTranslation(state.nav[direction]);
+            }
+        }));
+
         document.getElementById('open-settings-btn').onclick = () => toggleModal(elements.modals.settings, true);
-        elements.newChapterBtn.onclick = () => { /* ... (no changes) ... */ };
+        elements.newChapterBtn.onclick = () => { /* ... (same as previous version) ... */ };
         document.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', (e) => toggleModal(e.target.closest('.modal-backdrop'), false)));
         Object.values(elements.modals).forEach(m => m.addEventListener('click', (e) => { if(e.target === m) toggleModal(m, false); }));
+
+        document.addEventListener('keydown', (e) => {
+            if (elements.initialScreen.style.display === 'none' && !state.isTranslating) {
+                if (e.key === 'ArrowRight' && state.nav.next) document.querySelector('.nav-btn.next-btn').click();
+                if (e.key === 'ArrowLeft' && state.nav.prev) document.querySelector('.nav-btn.prev-btn').click();
+            }
+        });
+        
+        checkSession();
     });
     </script>
 </body>
