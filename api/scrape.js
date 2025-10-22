@@ -24,8 +24,11 @@ function findBestNavigationLink($, baseUrl, type) {
 
 export async function scrapeChapter(novelUrl, userCssSelector) {
     const apiKey = process.env.SCRAPINGBEE_API_KEY;
-    if (!apiKey) throw new Error('ScrapingBee API key is not configured on the server.');
+    if (!apiKey) {
+        throw new Error('ScrapingBee API key is not configured on the server.');
+    }
 
+    // --- USE SCRAPINGBEE TO FETCH THE HTML ---
     const scrapingBeeUrl = `https://app.scrapingbee.com/api/v1/?api_key=${apiKey}&url=${encodeURIComponent(novelUrl)}`;
 
     try {
@@ -36,27 +39,37 @@ export async function scrapeChapter(novelUrl, userCssSelector) {
         }
         const html = await response.text();
         
+        // --- USE LIGHTWEIGHT CHEERIO TO PARSE THE HTML ---
         const $ = cheerio.load(html);
         let rawText = '';
         let chapterTitle = '';
 
         const selectorsToTry = [
             userCssSelector,
-            '#content', '.entry-content', 'article', '.chapter-content', 
-            '#article-content', '.post-content', '.novel-content'
+            '#content', 
+            '.content',
+            'article', 
+            '.entry-content', 
+            '.chapter-content'
         ];
 
         for (const selector of selectorsToTry) {
             if (selector) {
-                const elementText = $(selector).text().trim();
-                if (elementText.length > 200) {
-                    rawText = elementText;
-                    break;
+                const contentHtml = $(selector).html();
+                if (contentHtml) {
+                    const textContent = contentHtml.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n');
+                    const cleanedText = $('<div>').html(textContent).text().trim();
+                    if (cleanedText.length > 200) {
+                        rawText = cleanedText;
+                        break;
+                    }
                 }
             }
         }
 
-        if (!rawText) throw new Error('Could not extract chapter text. Please check the CSS Selector in settings.');
+        if (!rawText) {
+            throw new Error('Could not extract chapter text. Please check the CSS Selector in settings.');
+        }
 
         chapterTitle = $('h1, h2, .title, .chapter-title, .entry-title').first().text().trim() || 'Untitled Chapter';
         const nextUrl = findBestNavigationLink($, novelUrl, 'next');
