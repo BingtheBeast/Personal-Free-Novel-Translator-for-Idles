@@ -10,25 +10,30 @@ export default async function handler(req) {
         const apiKey = (userApiKey && userApiKey.startsWith('gsk_')) ? userApiKey : process.env.GROQ_API_KEY;
         if (!apiKey) throw new Error('Server API key not configured.');
 
-        const systemPrompt = `You are a glossary generator. Generate a list of 8-12 key terms related to the user's prompt for a ${language} web novel. Output EXACTLY in this format one per line: 'Original' = 'Translation'. Do not include any other text, numbering, intro or outro.`;
+        // --- NEW: High-Quality, Ultra-Specific System Prompt ---
+        const scriptName = language === 'chinese' ? 'Chinese Hanzi characters' : 'Korean Hangul characters';
+        const example = language === 'chinese' 
+            ? "'修炼' = 'Cultivation'\n'金丹' = 'Golden Core'" 
+            : "'헌터' = 'Hunter'\n'게이트' = 'Gate'";
+
+        const systemPrompt = `You are an expert glossary generator for web novels.
+        
+        **CRITICAL RULES:**
+        1.  Your primary task is to generate a list of 8-12 key terms related to the user's prompt.
+        2.  The 'Original' term MUST be in the original script (${scriptName}), NOT in Pinyin or Romanization.
+        3.  Output EXACTLY in the format 'Original' = 'Translation', with one term per line.
+        4.  Do NOT include any other text, numbering, introductions, explanations, or markdown. Your entire response must be only the glossary terms.
+
+        **EXAMPLE OUTPUT FORMAT:**
+        ${example}`;
 
         const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile',
-                messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }],
-                temperature: 0.3, max_tokens: 1000,
-            }),
-        });
-
-        if (!response.ok) throw new Error((await response.json()).error?.message || 'Groq API failed');
-
-        const data = await response.json();
-        return new Response(JSON.stringify({ glossary: data.choices[0].message.content.trim() }), {
-            headers: { 'Content-Type': 'application/json' }
-        });
-    } catch (error) {
-        return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-    }
-}
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0.2, // Lower temperature for stricter f
