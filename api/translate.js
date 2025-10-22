@@ -1,5 +1,9 @@
 import { scrapeChapter } from './scrape.js';
 
+export const config = {
+    runtime: 'edge',
+};
+
 export default async function handler(req) {
     if (req.method !== 'POST') return new Response(JSON.stringify({ error: 'Method Not Allowed' }), { status: 405 });
 
