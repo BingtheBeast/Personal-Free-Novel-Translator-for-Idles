@@ -24,6 +24,38 @@ export default async function handler(req) {
 4.  Do NOT include any other text, numbering, introductions, explanations, or markdown. Your entire response must be only the glossary terms.
 
 **EXAMPLE OUTPUT FORMAT:**
-${example}`; // <-- THE MISSING BACKTICK IS NOW HERE
+${example}`; // <-- FIX #1: The missing backtick that caused the build to fail is now here.
 
-        const response = await fetch('https:/
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0.2,
+                max_tokens: 1000,
+            }),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error?.message || 'Groq API failed');
+        }
+
+        const data = await response.json();
+        
+        // --- FIX #2: The runtime error was here. Groq returns an array for 'choices'. ---
+        // We need to access the first item `[0]`.
+        const glossaryText = data.choices.message.content.trim();
+
+        return new Response(JSON.stringify({ glossary: glossaryText }), {
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+    } catch (error) {
+        return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    }
+}
