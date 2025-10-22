@@ -1,7 +1,7 @@
 {
   "name": "novel-translator-engine",
-  "version": "3.0.0",
-  "description": "A reliable, lightweight backend for secure translation.",
+  "version": "4.0.0",
+  "description": "A reliable, lightweight backend for secure translation powered by ScrapingBee.",
   "type": "module",
   "dependencies": {
     "cheerio": "^1.0.0-rc.12"

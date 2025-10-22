@@ -31,29 +31,19 @@ ${example}`;
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile',
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: prompt }
-                ],
-                temperature: 0.2,
-                max_tokens: 1000,
+                messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: prompt }],
+                temperature: 0.2, max_tokens: 1000,
             }),
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error?.message || 'Groq API failed');
-        }
+        if (!response.ok) throw new Error((await response.json()).error?.message || 'Groq API failed');
 
         const data = await response.json();
-        
-        // THE FIX IS HERE: Access the first item in the 'choices' array
         const glossaryText = data.choices[0].message.content.trim();
 
         return new Response(JSON.stringify({ glossary: glossaryText }), {
             headers: { 'Content-Type': 'application/json' }
         });
-
     } catch (error) {
         return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }

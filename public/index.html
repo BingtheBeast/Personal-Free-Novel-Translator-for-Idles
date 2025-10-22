@@ -1,140 +1,453 @@
 <!DOCTYPE html>
-<!-- ... (head and body tags are the same as the last full version) ... -->
-    
-    <!-- ADD THIS NEW MODAL to your HTML, inside the body but outside the main container -->
-    <div id="cors-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 invisible opacity-0">
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Novel Translator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #fafafa; --text-primary: #18181b; --text-secondary: #71717a; --card-bg: #ffffff; --input-bg: #f4f4f5; --input-border: #e4e4e7; --accent: #4f46e5; --accent-hover: #4338ca;
+        }
+        html.dark {
+            --bg-color: #09090b; --text-primary: #e4e4e7; --text-secondary: #a1a1aa; --card-bg: #18181b; --input-bg: #27272a; --input-border: #3f3f46; --accent: #6366f1; --accent-hover: #4f46e5;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-primary); transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s cubic-bezier(0.4, 0, 0.2, 1); -webkit-tap-highlight-color: transparent; }
+        #translation-output-pre { font-family: 'Source Serif 4', serif; white-space: pre-wrap; word-wrap: break-word; font-size: 1.15rem; line-height: 1.85; color: var(--text-primary); letter-spacing: -0.01em; }
+        .modal-backdrop { background-color: rgba(0, 0, 0, 0.3); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .modal-content { background-color: var(--card-bg); transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+        .input-field { background-color: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-primary); transition: all 0.2s ease; }
+        .input-field:focus { border-color: var(--accent); ring: 2px solid var(--accent); outline: none; }
+        .btn-primary { background-color: var(--accent); color: white; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .btn-primary:hover:not(:disabled) { background-color: var(--accent-hover); transform: translateY(-1px); }
+        .btn-primary:active:not(:disabled) { transform: translateY(0px) scale(0.98); }
+        .btn-icon { background-color: var(--card-bg); border: 1px solid var(--input-border); color: var(--text-primary); transition: all 0.2s ease; }
+        .btn-icon:hover { background-color: var(--input-bg); transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .loader { width: 20px; height: 20px; border: 2.5px solid var(--text-secondary); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .btn-primary .loader { border-color: rgba(255,255,255,0.3); border-top-color: white; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fade-in 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        .end-of-chapter-note { text-align: center; color: var(--text-secondary); margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--input-border); font-style: italic; font-size: 1rem; }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+    <!-- Fixed Header/Controls -->
+    <div class="fixed top-0 left-0 right-0 z-40 p-4 flex justify-between items-center pointer-events-none">
+        <div id="logo" class="font-serif font-bold text-xl tracking-tight opacity-0 transition-opacity duration-500 pointer-events-auto">NT.</div>
+        <div class="flex items-center space-x-3 pointer-events-auto">
+             <button id="new-chapter-btn" class="btn-icon p-2.5 rounded-full shadow-sm hidden opacity-0 transition-all duration-300" title="New Chapter"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg></button>
+             <button id="theme-toggle" class="btn-icon p-2.5 rounded-full shadow-sm" title="Toggle Theme"><svg id="theme-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"></svg></button>
+             <button id="open-settings-btn" class="btn-icon p-2.5 rounded-full shadow-sm" title="Settings"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></button>
+        </div>
+    </div>
+
+    <main class="flex-grow flex items-center justify-center p-4 sm:p-6 lg:p-8">
+        <!-- Initial Screen -->
+        <div id="initial-screen" class="w-full max-w-lg flex flex-col items-center text-center fade-in">
+             <h1 class="text-4xl sm:text-5xl font-bold mb-4 tracking-tight">Novel Translator</h1>
+             <p class="text-lg text-[var(--text-secondary)] mb-10">Distraction-free AI reading assistant.</p>
+             <div class="w-full relative group">
+                <div class="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full blur opacity-30 group-hover:opacity-50 transition duration-1000 group-hover:duration-200 animate-tilt"></div>
+                <div class="relative flex items-center bg-[var(--card-bg)] p-1.5 rounded-full shadow-2xl ring-1 ring-[var(--input-border)]">
+                    <input type="url" id="initial-url" placeholder="Paste chapter URL..." class="flex-grow px-4 py-3 bg-transparent border-none focus:ring-0 text-[var(--text-primary)] placeholder-[var(--text-secondary)] outline-none text-base">
+                    <button id="initial-translate-btn" class="btn-primary px-6 py-3 rounded-full font-semibold flex items-center justify-center min-w-[120px]">
+                        <span class="btn-text">Read</span><div class="loader hidden"></div>
+                    </button>
+                </div>
+            </div>
+            <button id="resume-btn" class="hidden mt-6 text-sm font-semibold text-[var(--accent)] hover:text-[var(--accent-hover)] transition-colors">Resume Reading</button>
+        </div>
+
+        <!-- Reader Screen -->
+        <article id="reader-screen" class="w-full max-w-3xl hidden">
+            <div id="status-bar" class="sticky top-0 z-30 py-4 text-center text-sm font-medium text-[var(--accent)] backdrop-blur-md bg-[var(--bg-color)]/80 mb-8 transform -translate-y-full transition-transform duration-300">
+                <span id="status-text"></span>
+            </div>
+            <div id="reader-content" class="hidden">
+                <div class="flex justify-between gap-4 mb-12 opacity-60 hover:opacity-100 transition-opacity">
+                    <button class="nav-btn prev-btn btn-icon flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-40"><div class="loader hidden"></div><span class="btn-text">Previous</span></button>
+                    <button class="nav-btn next-btn btn-icon flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-40"><div class="loader hidden"></div><span class="btn-text">Next</span></button>
+                </div>
+                <div class="bg-[var(--card-bg)] rounded-2xl shadow-sm ring-1 ring-[var(--input-border)] p-6 sm:p-10 md:p-12">
+                    <h2 id="chapter-title" class="text-2xl sm:text-4xl font-bold text-center mb-10 leading-tight"></h2>
+                    <div id="translation-output-pre"></div>
+                </div>
+                <div class="flex justify-between gap-4 mt-12 opacity-60 hover:opacity-100 transition-opacity">
+                    <button class="nav-btn prev-btn btn-icon flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-40"><div class="loader hidden"></div><span class="btn-text">Previous</span></button>
+                    <button class="nav-btn next-btn btn-icon flex-1 py-3 rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-40"><div class="loader hidden"></div><span class="btn-text">Next</span></button>
+                </div>
+            </div>
+        </article>
+    </main>
+
+    <!-- Modals -->
+    <div id="url-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 invisible opacity-0">
         <div class="modal-content w-full max-w-md rounded-2xl p-6 transform scale-95 opacity-0">
-            <h3 class="text-xl font-semibold mb-4">Advanced Security Detected</h3>
-            <p class="text-[var(--text-secondary)] mb-6">This website requires a browser extension to translate. Please enable the <a href="https://chromewebstore.google.com/detail/allow-cors-access-control/lhobafahddgcelffkeicbaginigeejlf" target="_blank" class="underline text-[var(--accent)]">Allow CORS</a> extension, then try again.</p>
-            <div class="flex justify-end">
-                <button id="cors-modal-close" class="btn-primary px-5 py-2 rounded-lg font-semibold">Got it</button>
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold">Next Chapter</h3>
+                <button class="close-modal btn-icon p-1.5 rounded-full"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+            </div>
+            <div class="flex gap-3">
+                <input type="url" id="modal-url" placeholder="https://..." class="input-field flex-grow px-4 py-3 rounded-xl">
+                <button id="modal-translate-btn" class="btn-primary px-6 py-3 rounded-xl font-semibold flex items-center justify-center min-w-[100px]"><span class="btn-text">Go</span><div class="loader hidden"></div></button>
             </div>
         </div>
     </div>
-    
+
+    <div id="settings-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 invisible opacity-0">
+         <div class="modal-content w-full max-w-lg rounded-2xl p-6 sm:p-8 transform scale-95 opacity-0 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold">Settings</h3>
+                <button class="close-modal btn-icon p-2 rounded-full"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+            </div>
+            <div class="space-y-6">
+                <div>
+                    <label class="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">Groq API Key (Optional)</label>
+                    <input type="password" id="groq-key" placeholder="gsk_..." class="input-field w-full px-4 py-3 rounded-xl">
+                    <p class="text-xs text-[var(--text-secondary)] mt-2">Using your own key from <a href="https://console.groq.com" target="_blank" class="underline hover:text-[var(--accent)]">Groq Console</a> ensures unlimited access.</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <div><label class="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">CSS Selector</label><input type="text" id="css-selector" placeholder=".content" class="input-field w-full px-4 py-3 rounded-xl"></div>
+                     <div><label class="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2 block">Source Language</label><select id="lang-select" class="input-field w-full px-4 py-3 rounded-xl appearance-none bg-no-repeat bg-right pr-10" style="background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%236b7280%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-size: .65em auto;"><option value="chinese">Chinese</option><option value="korean">Korean</option></select></div>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Custom Glossary</label>
+                        <span id="ai-status" class="text-xs text-[var(--accent)] font-medium opacity-0 transition-opacity"></span>
+                    </div>
+                    <div class="relative mb-3">
+                        <input type="text" id="ai-glossary-prompt" placeholder="✨ Type novel name & press Enter to auto-generate..." class="input-field w-full px-4 py-3 pr-12 rounded-xl text-sm">
+                        <div id="ai-loader" class="loader absolute right-4 top-3.5 !w-5 !h-5 hidden"></div>
+                    </div>
+                    <textarea id="glossary" rows="6" class="input-field w-full px-4 py-3 rounded-xl font-mono text-sm resize-y" placeholder="'Term' = 'Translation'"></textarea>
+                </div>
+            </div>
+         </div>
+    </div>
+
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // ... (elements and state are the same as the last full version) ...
-        const state = { nav: { next: null, prev: null }, currentUrl: '', isTranslating: false, forceFrontendScraping: false };
-        // ... (languageConfig is the same) ...
+        const elements = {
+            initialScreen: document.getElementById('initial-screen'),
+            readerScreen: document.getElementById('reader-screen'),
+            readerContent: document.getElementById('reader-content'),
+            initialUrlInput: document.getElementById('initial-url'),
+            modalUrlInput: document.getElementById('modal-url'),
+            initialBtn: document.getElementById('initial-translate-btn'),
+            modalBtn: document.getElementById('modal-translate-btn'),
+            resumeBtn: document.getElementById('resume-btn'),
+            navBtns: document.querySelectorAll('.nav-btn'),
+            statusBar: document.getElementById('status-bar'),
+            statusText: document.getElementById('status-text'),
+            chapterTitle: document.getElementById('chapter-title'),
+            translationOutput: document.getElementById('translation-output-pre'),
+            groqKeyInput: document.getElementById('groq-key'),
+            langSelect: document.getElementById('lang-select'),
+            cssSelectorInput: document.getElementById('css-selector'),
+            glossaryTextarea: document.getElementById('glossary'),
+            aiGlossaryInput: document.getElementById('ai-glossary-prompt'),
+            aiLoader: document.getElementById('ai-loader'),
+            aiStatus: document.getElementById('ai-status'),
+            logo: document.getElementById('logo'),
+            newChapterBtn: document.getElementById('new-chapter-btn'),
+            themeToggle: document.getElementById('theme-toggle'),
+            themeIcon: document.getElementById('theme-icon'),
+            modals: { url: document.getElementById('url-modal'), settings: document.getElementById('settings-modal') }
+        };
+
+        const state = { nav: { next: null, prev: null }, currentUrl: '', isTranslating: false };
+
+        const languageConfig = {
+            chinese: {
+                prompt: `You are a world-class literary translator specializing in Chinese web novels. Your mission is to translate the provided text into masterful English prose.
+
+## PRIMARY DIRECTIVES
+1.  **Preserve the Soul:** Do not just translate words; translate the feeling, the tone, and the subtext. The goal is literary excellence.
+2.  **Character Voice:** Pay meticulous attention to character-specific speech patterns. A young master's arrogant tone, a stoic elder's formal speech, or a comedic sidekick's slang must be preserved.
+3.  **Conceptual Translation:** For idioms, proverbs, and cultural concepts (like 'face' or 'dao'), find the closest English literary equivalent that captures the original's *intent and meaning*, rather than its literal words.
+
+## GLOSSARY & TERMS
+- **Glossary is LAW:** The user-provided glossary is an absolute, non-negotiable directive. Every term in it MUST be translated exactly as specified.
+- **Pinyin for Unknowns:** For proper nouns (names, places, sects) NOT in the glossary, transliterate them into standard Pinyin. DO NOT leave them as original Chinese characters.
+
+## FORMATTING
+- **Structure:** The input will have the chapter title on the first line, followed by "---". Your output MUST preserve this format: translated title, then a newline, then "---", then another newline, then the translated body.
+- **Purity:** Provide ONLY the translated text. Do not add any author notes, translation notes, commentary, or apologies.
+
+--- GLOSSARY START ---
+{{GLOSSARY}}
+--- GLOSSARY END ---
+
+--- RAW TEXT TO TRANSLATE ---
+{{TEXT}}
+--- END ---`,
+                defaultGlossary: `# --- Common Concepts ---\n'道' = 'Dao'\n'气' = 'Qi'\n'修炼' = 'Cultivation'\n'灵气' = 'Spiritual Energy'\n'内力' = 'Internal Energy'\n'经脉' = 'Meridians'\n'丹田' = 'Dantian'\n'神识' = 'Divine Sense'\n'心魔' = 'Inner Demon'\n'业力' = 'Karma'\n'面子' = 'Face (social standing)'\n'找死' = 'Courting Death'\n'磕头' = 'Kowtow'\n'晚辈' = 'Junior'\n'前辈' = 'Senior'\n\n# --- Cultivation Ranks (Xianxia) ---\n'炼气' = 'Qi Refining'\n'筑基' = 'Foundation Establishment'\n'金丹' = 'Golden Core'\n'元婴' = 'Nascent Soul'\n'化神' = 'Spirit Transformation'\n'返虚' = 'Void Returning'\n'合道' = 'Dao Merging'\n'渡劫' = 'Tribulation Transcending'\n'大乘' = 'Mahayana'\n'真仙' = 'True Immortal'\n'金仙' = 'Golden Immortal'\n\n# --- Martial Ranks (Wuxia/Xuanhuan) ---\n'后天' = 'Houtian'\n'先天' = 'Xiantian'\n'宗师' = 'Grandmaster'\n'大宗师' = 'Great Grandmaster'\n'武王' = 'Martial King'\n'武皇' = 'Martial Emperor'\n'武尊' = 'Martial Venerate'\n'武圣' = 'Martial Saint'\n'武神' = 'Martial God'\n\n# --- Social & Sect Terms ---\n'师父' = 'Master (Shifu)'\n'师兄' = 'Senior Martial Brother'\n'师弟' = 'Junior Martial Brother'\n'师姐' = 'Senior Martial Sister'\n'师妹' = 'Junior Martial Sister'\n'掌门' = 'Sect Master'\n'宗主' = 'Sect Lord'\n'弟子' = 'Disciple'\n'长老' = 'Elder'\n'宗门' = 'Sect'\n'家族' = 'Family / Clan'\n'圣女' = 'Saintess'\n'圣子' = 'Saint'\n'皇上' = 'Emperor'\n'陛下' = 'Your Majesty'\n'殿下' = 'Your Highness'\n'公子' = 'Young Master'\n'小姐' = 'Young Miss'\n\n# --- Items & Alchemy ---\n'法宝' = 'Magic Treasure'\n'灵器' = 'Spirit Tool'\n'仙器' = 'Immortal Tool'\n'神器' = 'Divine Tool'\n'灵石' = 'Spirit Stone'\n'丹药' = 'Medicinal Pill / Elixir'\n'灵草' = 'Spirit Grass'\n'功法' = 'Cultivation Technique'\n'神通' = 'Divine Ability'\n'储物戒指' = 'Storage Ring'\n\n# --- Places & Creatures ---\n'洞府' = 'Immortal\'s Cave'\n'秘境' = 'Secret Realm'\n'小世界' = 'Lesser World'\n'妖兽' = 'Yao Beast (Demonic Beast)'\n'魔兽' = 'Mo Beast (Magical Beast)'\n'龙' = 'Dragon'\n'凤' = 'Phoenix'`
+            },
+            korean: {
+                prompt: `You are a world-class literary translator specializing in Korean web novels. Your mission is to translate the provided text into masterful English prose.
+
+## PRIMARY DIRECTIVES
+1.  **Preserve the Soul:** Do not just translate words; translate the feeling, the modern and punchy tone, and the subtext. The goal is literary excellence.
+2.  **Character Voice:** Pay meticulous attention to character-specific speech patterns. A hunter's sharp commands, a regressor's weary monologue, or a system's robotic text must be preserved.
+3.  **Conceptual Translation:** For idioms and cultural concepts, find the closest English literary equivalent that captures the original's *intent and meaning*, rather than its literal words.
+
+## GLOSSARY & TERMS
+- **Glossary is LAW:** The user-provided glossary is an absolute, non-negotiable directive. Every term in it MUST be translated exactly as specified.
+- **Romanization for Unknowns:** For names or terms NOT in the glossary, romanize them using the Revised Romanization of Korean system. DO NOT leave them as original Korean characters.
+- **Preserve Honorifics:** Preserve Korean honorifics (e.g., 'Gildong-nim', 'Sunbae').
+
+## FORMATTING
+- **Structure:** The input will have the chapter title on the first line, followed by "---". Your output MUST preserve this format: translated title, then a newline, then "---", then another newline, then the translated body.
+- **Purity:** Provide ONLY the translated text. Do not add any author notes, translation notes, commentary, or apologies.
+
+--- GLOSSARY START ---
+{{GLOSSARY}}
+--- GLOSSARY END ---
+
+--- RAW TEXT TO TRANSLATE ---
+{{TEXT}}
+--- END ---`,
+                defaultGlossary: `# --- System & Hunter Terms ---\n'헌터' = 'Hunter'\n'게이트' = 'Gate'\n'던전' = 'Dungeon'\n'마나' = 'Mana'\n'각성' = 'Awakening'\n'각성자' = 'Awakened'\n'시스템' = 'The System'\n'상태창' = 'Status Window'\n'레벨업' = 'Level Up'\n'S급' = 'S-Rank'\n'A급' = 'A-Rank'\n'길드' = 'Guild'\n'파티' = 'Party'\n'아이템' = 'Item'\n'스킬' = 'Skill'\n'몬스터' = 'Monster'\n'보스' = 'Boss Monster'\n'회귀' = 'Regression / Return'\n'회귀자' = 'Regressor / Returner'\n'빙의' = 'Possession'\n'환생' = 'Reincarnation'\n\n# --- Roles & Classes ---\n'탱커' = 'Tank'\n'힐러' = 'Healer'\n'딜러' = 'Dealer / Damage Dealer'\n'서포터' = 'Supporter'\n'마법사' = 'Mage / Wizard'\n'전사' = 'Warrior'\n'궁수' = 'Archer'\n'암살자' = 'Assassin'\n\n# --- Murim (Martial World) Terms ---\n'무림' = 'Murim'\n'정파' = 'Orthodox Faction'\n'사파' = 'Unorthodox Faction'\n'마교' = 'Demonic Cult'\n'기' = 'Ki / Internal Energy'\n'내공' = 'Internal Gong'\n'심법' = 'Heart Technique'\n'무공' = 'Martial Arts'\n'소교주' = 'Young Cult Leader'\n'맹주' = 'Alliance Leader'\n\n# --- Royalty & Nobility ---\n'황제' = 'Emperor'\n'황태자' = 'Crown Prince'\n'왕자' = 'Prince'\n'공주' = 'Princess'\n'공작' = 'Duke'\n'후작' = 'Marquis'\n'백작' = 'Count'\n'영애' = 'Young Lady / Daughter of a Noble'\n\n# --- Honorifics & Titles ---\n'님' = '-nim'\n'씨' = '-ssi'\n'선생님' = 'Teacher-nim'\n'선배' = 'Sunbae (Senior)'\n'후배' = 'Hoobae (Junior)'\n'오빠' = 'Oppa'\n'형' = 'Hyung'\n'누나' = 'Noona'\n'언니' = 'Unni'`
+            }
+        };
+        
+        function toggleModal(modal, show) {
+            const content = modal.firstElementChild;
+            if (show) {
+                modal.classList.remove('invisible', 'opacity-0');
+                content.classList.remove('scale-95', 'opacity-0');
+            } else {
+                modal.classList.add('opacity-0');
+                content.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => modal.classList.add('invisible'), 300);
+            }
+        }
+        
+        function setLoadingState(isLoading, button = null) {
+            const buttonsToUpdate = button ? [button] : [elements.initialBtn, elements.modalBtn, ...elements.navBtns];
+            buttonsToUpdate.forEach(btn => {
+                if (!btn) return;
+                const loader = btn.querySelector('.loader');
+                const text = btn.querySelector('.btn-text');
+                if (loader) loader.classList.toggle('hidden', !isLoading);
+                if (text) text.classList.toggle('hidden', isLoading);
+                btn.disabled = isLoading;
+            });
+            if (!button) {
+                 [elements.openSettingsBtn, elements.newChapterBtn, elements.themeToggle].forEach(b => b.disabled = isLoading);
+            }
+        }
+
+        function updateStatus(message) {
+            elements.statusText.textContent = message;
+            elements.statusBar.style.transform = message ? 'translateY(0)' : 'translateY(-100%)';
+        }
+        
+        function cleanUrl(urlString) {
+            try {
+                const url = new URL(urlString);
+                url.hash = '';
+                const paramsToRemove = Array.from(url.searchParams.keys()).filter(key => key.startsWith('utm_') || key === 'fbclid');
+                paramsToRemove.forEach(key => url.searchParams.delete(key));
+                return url.href;
+            } catch (e) { return urlString; }
+        }
 
         async function handleTranslation(url) {
             const cleanedUrl = cleanUrl(url);
             if (!cleanedUrl || state.isTranslating || cleanedUrl === state.currentUrl) return;
 
-            // ... (UI setup logic is the same) ...
+            state.isTranslating = true;
+            state.currentUrl = cleanedUrl;
+            toggleModal(elements.modals.url, false);
             
+            if (elements.initialScreen.style.display !== 'none') {
+                elements.initialScreen.style.opacity = 0;
+                setTimeout(() => {
+                    elements.initialScreen.style.display = 'none';
+                    elements.readerScreen.classList.remove('hidden');
+                    elements.readerScreen.classList.add('fade-in');
+                    elements.logo.classList.remove('opacity-0');
+                    elements.newChapterBtn.classList.remove('hidden', 'opacity-0');
+                }, 300);
+            }
+            
+            elements.readerContent.classList.add('hidden');
+            updateStatus('Thinking...');
+            setLoadingState(true);
+
             try {
-                let navLinks;
-                if (state.forceFrontendScraping) {
-                    console.log("Using Frontend Scraper due to previous block.");
-                    navLinks = await translateWithFrontendScraper(cleanedUrl);
-                } else {
-                    console.log("Using Backend Scraper (Default).");
-                    navLinks = await translateWithBackendScraper(cleanedUrl);
+                const langConfig = languageConfig[elements.langSelect.value];
+                const prompt = langConfig.prompt.replace('{{GLOSSARY}}', `${langConfig.defaultGlossary}\n${elements.glossaryTextarea.value}`);
+
+                const response = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        novelUrl: cleanedUrl, 
+                        promptData: prompt, 
+                        userApiKey: elements.groqKeyInput.value,
+                        cssSelector: elements.cssSelectorInput.value.trim()
+                    })
+                });
+
+                if (!response.ok) throw new Error((await response.json()).error || 'Translation request failed.');
+                
+                state.nav = { next: response.headers.get('X-Next-Url') || null, prev: response.headers.get('X-Prev-Url') || null };
+                elements.translationOutput.innerHTML = '';
+                elements.chapterTitle.textContent = '';
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let isTitleDone = false;
+
+                elements.readerContent.classList.remove('hidden');
+                elements.readerContent.classList.add('fade-in');
+                updateStatus('');
+                setLoadingState(false);
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    decoder.decode(value, { stream: true }).split('\n').forEach(line => {
+                        if (line.startsWith('data: ') && line.trim() !== 'data: [DONE]') {
+                            try {
+                                const delta = JSON.parse(line.substring(6)).choices[0]?.delta?.content || '';
+                                if (!isTitleDone) {
+                                    elements.translationOutput.textContent += delta;
+                                    if (elements.translationOutput.textContent.includes('\n---\n')) {
+                                        const parts = elements.translationOutput.textContent.split('\n---\n');
+                                        elements.chapterTitle.textContent = parts[0].trim();
+                                        elements.translationOutput.textContent = parts.slice(1).join('\n---\n').trimStart();
+                                        isTitleDone = true;
+                                    }
+                                } else {
+                                    elements.translationOutput.textContent += delta;
+                                }
+                            } catch (e) { /* Ignore parsing errors in stream */ }
+                        }
+                    });
                 }
-                state.nav = { next: navLinks.nextUrl, prev: navLinks.prevUrl };
-                updateStatus('Successfully translated chapter.');
+                elements.translationOutput.appendChild(Object.assign(document.createElement('div'), { className: 'end-of-chapter-note', textContent: '❦' }));
                 sessionStorage.setItem('nt_lastUrl', state.currentUrl);
+
             } catch (error) {
-                // --- THIS IS THE HYBRID LOGIC ---
-                if (error.errorCode === 'FORBIDDEN') {
-                    console.log("Backend blocked (403). Switching to frontend mode and prompting user.");
-                    state.forceFrontendScraping = true; // Set the flag for next time
-                    toggleModal(elements.modals.cors, true); // Show the CORS modal
-                    state.currentUrl = ''; // Allow re-trying
-                } else {
-                    state.currentUrl = ''; // Allow re-trying on other errors
-                    updateStatus(error.message);
-                }
+                state.currentUrl = '';
+                updateStatus(error.message);
+                setTimeout(() => updateStatus(''), 4000);
             } finally {
-                // ... (cleanup logic is the same) ...
+                state.isTranslating = false;
+                setLoadingState(false);
+                elements.navBtns.forEach(btn => {
+                    const isNext = btn.classList.contains('next-btn');
+                    btn.disabled = isNext ? !state.nav.next : !state.nav.prev;
+                });
             }
         }
 
-        async function translateWithBackendScraper(url) {
-            const langConfig = languageConfig[elements.langSelect.value];
-            const prompt = langConfig.prompt.replace('{{GLOSSARY}}', `${langConfig.defaultGlossary}\n${elements.glossaryTextarea.value}`);
-
-            const response = await fetch('/api/translate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    novelUrl: url, 
-                    promptData: prompt, 
-                    userApiKey: elements.groqKeyInput.value,
-                    cssSelector: elements.cssSelectorInput.value.trim()
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                const error = new Error(errorData.error || 'Translation request failed.');
-                if (response.status === 403) error.errorCode = 'FORBIDDEN';
-                throw error;
+        elements.aiGlossaryInput.addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter' && e.target.value.trim()) {
+                const prompt = e.target.value.trim();
+                e.target.disabled = true;
+                elements.aiLoader.classList.remove('hidden');
+                elements.aiStatus.textContent = 'Generating...';
+                elements.aiStatus.classList.remove('opacity-0');
+                try {
+                    const response = await fetch('/api/glossary', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt, language: elements.langSelect.value, userApiKey: elements.groqKeyInput.value })
+                    });
+                    if (!response.ok) throw new Error((await response.json()).error);
+                    const data = await response.json();
+                    elements.glossaryTextarea.value += (elements.glossaryTextarea.value ? '\n' : '') + `# AI: ${prompt}\n` + data.glossary;
+                    saveSettings();
+                    e.target.value = '';
+                } catch (err) { alert(`Glossary Error: ${err.message}`); }
+                finally {
+                    e.target.disabled = false;
+                    elements.aiLoader.classList.add('hidden');
+                    elements.aiStatus.classList.add('opacity-0');
+                    e.target.focus();
+                }
             }
-            
-            // ... (Stream processing logic is the same as the last full version) ...
-            
-            return { nextUrl: response.headers.get('X-Next-Url') || null, prevUrl: response.headers.get('X-Prev-Url') || null };
+        });
+
+        function saveSettings() {
+            localStorage.setItem('nt_settings', JSON.stringify({
+                key: elements.groqKeyInput.value,
+                lang: elements.langSelect.value,
+                gloss: elements.glossaryTextarea.value,
+                theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
+                selector: elements.cssSelectorInput.value
+            }));
         }
-
-        // --- THIS IS THE RESTORED FRONTEND SCRAPER ---
-        async function translateWithFrontendScraper(url) {
-            updateStatus('Scraping with browser...');
-            const { rawText, chapterTitle, nextUrl, prevUrl } = await scrapeFromBrowser(url);
-            
-            updateStatus('Translating...');
-            const textToTranslate = `${chapterTitle}\n---\n${rawText}`;
-
-            const langConfig = languageConfig[elements.langSelect.value];
-            const prompt = langConfig.prompt.replace('{{GLOSSARY}}', `${langConfig.defaultGlossary}\n${elements.glossaryTextarea.value}`).replace('{{TEXT}}', textToTranslate);
-            
-            // This calls the Groq API directly, which requires the extension
-            const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${elements.groqKeyInput.value || 'gsk_...YourFallbackKeyHere'}` },
-                body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
-                    messages: [{ role: 'user', content: prompt }],
-                    stream: true, max_tokens: 8000,
-                }),
-            });
-
-            if (!groqResponse.ok) throw new Error('Groq API request failed. Check your API key and CORS extension.');
-            
-            // ... (Stream processing logic is the same) ...
-
-            return { nextUrl, prevUrl };
-        }
-
-        async function scrapeFromBrowser(url) {
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`Failed to fetch from browser (Status: ${response.status})`);
-                const html = await response.text();
-                const doc = new DOMParser().parseFromString(html, 'text/html');
-                const selector = elements.cssSelectorInput.value.trim() || '.content';
-                const contentElement = doc.querySelector(selector);
-                if (!contentElement) throw new Error(`Could not find content with selector '${selector}'.`);
-                
-                const rawText = contentElement.innerText.trim();
-                const chapterTitle = doc.querySelector('h1, h2, .title')?.innerText.trim() || 'Untitled Chapter';
-                const nextLink = doc.querySelector("a:is(:contains('下一章'), :contains('Next'))");
-                const prevLink = doc.querySelector("a:is(:contains('上一章'), :contains('Previous'))");
-                
-                const getAbsoluteUrl = (link) => link ? new URL(link.getAttribute('href'), url).href : null;
-
-                return { rawText, chapterTitle, nextUrl: getAbsoluteUrl(nextLink), prevUrl: getAbsoluteUrl(prevLink) };
-            } catch (e) {
-                if (e instanceof TypeError) throw new Error("Fetch failed. Is your CORS extension enabled?");
-                throw e;
+        
+        function checkSession() {
+            const lastUrl = sessionStorage.getItem('nt_lastUrl');
+            if (lastUrl) {
+                elements.resumeBtn.classList.remove('hidden');
+                elements.resumeBtn.onclick = () => handleTranslation(lastUrl);
             }
         }
 
-        // ... (The rest of the script, including event listeners and save/load functions, is the same) ...
-        // Add the new modal's close button to the event listeners
-        document.getElementById('cors-modal-close').onclick = () => toggleModal(elements.modals.cors, false);
+        const settings = JSON.parse(localStorage.getItem('nt_settings') || '{}');
+        elements.groqKeyInput.value = settings.key || '';
+        elements.langSelect.value = settings.lang || 'chinese';
+        elements.glossaryTextarea.value = settings.gloss || '';
+        elements.cssSelectorInput.value = settings.selector || '.content';
+        
+        const isDark = settings.theme !== 'light';
+        document.documentElement.classList.toggle('dark', isDark);
+        elements.themeIcon.innerHTML = isDark 
+            ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>' 
+            : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>';
+
+        [elements.groqKeyInput, elements.langSelect, elements.glossaryTextarea, elements.cssSelectorInput].forEach(el => el.addEventListener('change', saveSettings));
+        
+        elements.themeToggle.addEventListener('click', () => {
+             const isDark = document.documentElement.classList.toggle('dark');
+             elements.themeIcon.innerHTML = isDark 
+                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>' 
+                : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>';
+             saveSettings();
+        });
+
+        elements.initialBtn.addEventListener('click', () => handleTranslation(elements.initialUrlInput.value));
+        elements.modalBtn.addEventListener('click', () => handleTranslation(elements.modalUrlInput.value));
+        
+        elements.navBtns.forEach(b => b.addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            setLoadingState(true, btn);
+            const direction = btn.classList.contains('next-btn') ? 'next' : 'prev';
+            if(state.nav[direction]) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                handleTranslation(state.nav[direction]);
+            }
+        }));
+
+        document.getElementById('open-settings-btn').onclick = () => toggleModal(elements.modals.settings, true);
+        elements.newChapterBtn.onclick = () => {
+            elements.modalUrlInput.value = '';
+            toggleModal(elements.modals.url, true);
+            setTimeout(() => elements.modalUrlInput.focus(), 100);
+        };
+        document.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', (e) => toggleModal(e.target.closest('.modal-backdrop'), false)));
+        Object.values(elements.modals).forEach(m => m.addEventListener('click', (e) => { if(e.target === m) toggleModal(m, false); }));
+        
+        document.addEventListener('keydown', (e) => {
+            if (elements.initialScreen.style.display === 'none' && !state.isTranslating) {
+                if (e.key === 'ArrowRight' && state.nav.next) document.querySelector('.nav-btn.next-btn').click();
+                if (e.key === 'ArrowLeft' && state.nav.prev) document.querySelector('.nav-btn.prev-btn').click();
+            }
+        });
+        
+        checkSession();
     });
     </script>
 </body>

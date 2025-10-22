@@ -23,31 +23,27 @@ function findBestNavigationLink($, baseUrl, type) {
 }
 
 export async function scrapeChapter(novelUrl, userCssSelector) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 9000);
+    const apiKey = process.env.SCRAPINGBEE_API_KEY;
+    if (!apiKey) throw new Error('ScrapingBee API key is not configured on the server.');
+
+    const scrapingBeeUrl = `https://app.scrapingbee.com/api/v1/?api_key=${apiKey}&url=${encodeURIComponent(novelUrl)}`;
 
     try {
-        const response = await fetch(novelUrl, {
-            signal: controller.signal,
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
-        });
-        if (!response.ok) throw new Error(`Failed to fetch chapter. Status: ${response.status}`);
+        const response = await fetch(scrapingBeeUrl);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Scraping API failed with status ${response.status}: ${errorText}`);
+        }
         const html = await response.text();
         
         const $ = cheerio.load(html);
         let rawText = '';
         let chapterTitle = '';
 
-        // Prioritized Hybrid Logic using ONLY Cheerio
         const selectorsToTry = [
-            userCssSelector, // User's choice first!
-            '#content', 
-            '.entry-content', 
-            'article', 
-            '.chapter-content', 
-            '#article-content', 
-            '.post-content', 
-            '.novel-content'
+            userCssSelector,
+            '#content', '.entry-content', 'article', '.chapter-content', 
+            '#article-content', '.post-content', '.novel-content'
         ];
 
         for (const selector of selectorsToTry) {
@@ -69,9 +65,6 @@ export async function scrapeChapter(novelUrl, userCssSelector) {
         return { rawText, chapterTitle, nextUrl, prevUrl };
 
     } catch (error) {
-        if (error.name === 'AbortError') throw new Error('The target website took too long to respond.');
         throw error;
-    } finally {
-        clearTimeout(timeout);
     }
 }

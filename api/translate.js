@@ -6,7 +6,7 @@ export default async function handler(req) {
     try {
         const { novelUrl, promptData, userApiKey, cssSelector } = await req.json();
         const apiKey = (userApiKey && userApiKey.startsWith('gsk_')) ? userApiKey : process.env.GROQ_API_KEY;
-        if (!apiKey) throw new Error('API key is not configured.');
+        if (!apiKey) throw new Error('Groq API key is not configured.');
 
         const { rawText, chapterTitle, nextUrl, prevUrl } = await scrapeChapter(novelUrl, cssSelector); 
         
@@ -33,11 +33,6 @@ export default async function handler(req) {
             },
         });
     } catch (error) {
-        // --- THIS IS THE KEY ---
-        // If the error contains "Status: 403", send a special error code.
-        if (error.message.includes('Status: 403')) {
-            return new Response(JSON.stringify({ error: 'The website is blocking server requests (403 Forbidden).', errorCode: 'FORBIDDEN' }), { status: 403, headers: { 'Content-Type': 'application/json' } });
-        }
         return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
     }
 }
