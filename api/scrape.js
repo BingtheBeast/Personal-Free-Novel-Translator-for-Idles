@@ -1,9 +1,6 @@
-import { JSDOM } from 'jsdom';
-import { Readability } from '@mozilla/readability';
-import * as cheerio from 'cheerio'; // CORRECTED IMPORT
+import * as cheerio from 'cheerio';
 
 function findBestNavigationLink($, baseUrl, type) {
-    // ... (rest of the function is identical)
     const candidates = [];
     const keywords = type === 'next' ? ['下一章', 'next chapter', '다음', 'next'] : ['上一章', 'previous chapter', '이전', 'prev'];
     const allLinks = $('a[href]').toArray();
@@ -37,43 +34,35 @@ export async function scrapeChapter(novelUrl, userCssSelector) {
         if (!response.ok) throw new Error(`Failed to fetch chapter. Status: ${response.status}`);
         const html = await response.text();
         
+        const $ = cheerio.load(html);
         let rawText = '';
         let chapterTitle = '';
-        const $ = cheerio.load(html);
 
-        if (userCssSelector) {
-            const userText = $(userCssSelector).text().trim();
-            if (userText.length > 200) {
-                rawText = userText;
-                chapterTitle = $('h1, h2, .title, .chapter-title, .entry-title').first().text().trim() || 'Untitled Chapter';
-            }
-        }
+        // Prioritized Hybrid Logic using ONLY Cheerio
+        const selectorsToTry = [
+            userCssSelector, // User's choice first!
+            '#content', 
+            '.entry-content', 
+            'article', 
+            '.chapter-content', 
+            '#article-content', 
+            '.post-content', 
+            '.novel-content'
+        ];
 
-        if (!rawText) {
-            const doc = new JSDOM(html, { url: novelUrl });
-            const reader = new Readability(doc.window.document);
-            const article = reader.parse();
-            if (article && article.textContent && article.textContent.trim().length > 200) {
-                const content$ = cheerio.load(article.content);
-                rawText = content$.text().trim();
-                chapterTitle = article.title || 'Untitled Chapter';
-            }
-        }
-        
-        if (!rawText) {
-            const selectorsToTry = ['#content', '.entry-content', 'article', '.chapter-content', '#article-content', '.post-content', '.novel-content'];
-            for (const selector of selectorsToTry) {
+        for (const selector of selectorsToTry) {
+            if (selector) {
                 const elementText = $(selector).text().trim();
                 if (elementText.length > 200) {
                     rawText = elementText;
-                    if (!chapterTitle) chapterTitle = $('h1, h2, .title, .chapter-title, .entry-title').first().text().trim() || 'Untitled Chapter';
                     break;
                 }
             }
         }
 
-        if (!rawText) throw new Error('Could not extract chapter text with any available method.');
+        if (!rawText) throw new Error('Could not extract chapter text. Please check the CSS Selector in settings.');
 
+        chapterTitle = $('h1, h2, .title, .chapter-title, .entry-title').first().text().trim() || 'Untitled Chapter';
         const nextUrl = findBestNavigationLink($, novelUrl, 'next');
         const prevUrl = findBestNavigationLink($, novelUrl, 'prev');
         
